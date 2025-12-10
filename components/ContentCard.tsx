@@ -7,10 +7,11 @@ interface ContentCardProps {
   onSave: (item: ContentItem) => void;
   onRemove: (id: string) => void;
   onGenerateHook?: (item: ContentItem) => void;
+  onView: (item: ContentItem) => void;
   view: 'discover' | 'saved';
 }
 
-const ContentCard: React.FC<ContentCardProps> = ({ item, onSave, onRemove, onGenerateHook, view }) => {
+const ContentCard: React.FC<ContentCardProps> = ({ item, onSave, onRemove, onGenerateHook, onView, view }) => {
   const isSavedView = view === 'saved';
 
   const handleAction = (e: React.MouseEvent) => {
@@ -25,13 +26,15 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onSave, onRemove, onGen
   };
 
   return (
-    <div className="group bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-emerald-100 transition-all duration-300 flex flex-col h-full relative overflow-hidden">
-      
+    <div
+      className="group bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg hover:border-emerald-100 transition-all duration-300 flex flex-col h-full relative overflow-hidden cursor-pointer"
+      onClick={() => onView(item)}
+    >
+
       {/* Top Source Badge */}
       <div className="flex justify-between items-start mb-4">
-        <div className={`flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
-          item.source === 'reddit' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
-        }`}>
+        <div className={`flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${item.source === 'reddit' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
+          }`}>
           {item.source === 'reddit' ? (
             <MessageSquare size={12} className="fill-current" />
           ) : (
@@ -39,24 +42,24 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onSave, onRemove, onGen
           )}
           {item.sourceName}
         </div>
-        
+
         <div className="text-xs text-slate-400 font-medium flex items-center gap-1">
-            <Calendar size={12} />
-            {new Date(item.timestamp).toLocaleDateString()}
+          <Calendar size={12} />
+          {new Date(item.timestamp).toLocaleDateString()}
         </div>
       </div>
 
       {/* Image if available */}
       {item.imageUrl && (
         <div className="mb-4 rounded-xl overflow-hidden h-32 w-full relative">
-            <img src={item.imageUrl} alt="preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+          <img src={item.imageUrl} alt="preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
         </div>
       )}
 
       {/* Content */}
       <div className="flex-1">
-        <h3 className="text-slate-800 font-bold text-lg leading-tight mb-2 group-hover:text-emerald-700 transition-colors cursor-pointer">
+        <h3 className="text-slate-800 font-bold text-lg leading-tight mb-2 group-hover:text-emerald-700 transition-colors">
           {item.title}
         </h3>
         <p className="text-slate-500 text-sm leading-relaxed line-clamp-3 mb-4">
@@ -66,9 +69,9 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onSave, onRemove, onGen
 
       {/* Actions */}
       <div className="pt-4 border-t border-slate-50 flex items-center justify-between mt-auto">
-        <a 
-          href={item.url} 
-          target="_blank" 
+        <a
+          href={item.url}
+          target="_blank"
           rel="noreferrer"
           className="text-slate-400 hover:text-emerald-600 transition-colors p-1"
         >
@@ -88,11 +91,10 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onSave, onRemove, onGen
 
           <button
             onClick={handleAction}
-            className={`p-2 rounded-full transition-all duration-200 ${
-              item.isSaved || isSavedView
+            className={`p-2 rounded-full transition-all duration-200 ${item.isSaved || isSavedView
                 ? 'text-red-500 bg-red-50 hover:bg-red-100'
                 : 'text-slate-400 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-500'
-            }`}
+              }`}
             title={isSavedView ? "Delete" : (item.isSaved ? "Unsave" : "Save")}
           >
             {isSavedView ? (
