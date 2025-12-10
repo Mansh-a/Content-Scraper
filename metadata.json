@@ -1,0 +1,5 @@
+{
+  "name": "CurateFlow Dashboard",
+  "description": "A minimalist content curation dashboard for Reddit and Newsletters with AI hook generation.",
+  "requestFramePermissions": []
+}
