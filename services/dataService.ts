@@ -1,7 +1,7 @@
 import { ContentItem } from '../types';
 
 // MCP Configuration
-const N8N_MCP_URL = "/mcp-server/http";
+const N8N_MCP_URL = import.meta.env.VITE_MCP_API_URL || "/mcp-server/http";
 const N8N_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0ZmY0YjdmMy1hMTM5LTRiYjgtOTE2OC1iMmExMGRkNWFjY2UiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjU1NDYwYmQ4LTZmYzEtNDMxYi04ZWZkLTM0NzRjOTJmZGM1ZCIsImlhdCI6MTc2NTM0NDczNH0.KovKNLtlvY6nMNOcGS4MLbeyeDO7jwitJly2v5_u1g4";
 
 // Mock data to simulate the "Scrape" result from n8n (Fallback)
