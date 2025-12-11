@@ -1,8 +1,8 @@
 import { ContentItem } from '../types';
 
 // MCP Configuration
-const N8N_MCP_URL = import.meta.env.VITE_MCP_API_URL || "/mcp-server/http";
-const N8N_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0ZmY0YjdmMy1hMTM5LTRiYjgtOTE2OC1iMmExMGRkNWFjY2UiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjU1NDYwYmQ4LTZmYzEtNDMxYi04ZWZkLTM0NzRjOTJmZGM1ZCIsImlhdCI6MTc2NTM0NDczNH0.KovKNLtlvY6nMNOcGS4MLbeyeDO7jwitJly2v5_u1g4";
+const N8N_MCP_URL = import.meta.env.VITE_MCP_API_URL || "/mcp-server";
+const N8N_API_KEY = import.meta.env.VITE_N8N_API_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0ZmY0YjdmMy1hMTM5LTRiYjgtOTE2OC1iMmExMGRkNWFjY2UiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjU1NDYwYmQ4LTZmYzEtNDMxYi04ZWZkLTM0NzRjOTJmZGM1ZCIsImlhdCI6MTc2NTM0NDczNH0.KovKNLtlvY6nMNOcGS4MLbeyeDO7jwitJly2v5_u1g4";
 
 // Mock data to simulate the "Scrape" result from n8n (Fallback)
 const MOCK_REDDIT_DATA: ContentItem[] = [
@@ -83,11 +83,11 @@ const getFallbackData = (): Promise<ContentItem[]> => {
 // Main Scrape Function connecting to n8n MCP
 export const scrapeContent = async (): Promise<ContentItem[]> => {
   try {
-    console.log("Connecting to n8n MCP...");
+    console.log("Connecting to n8n MCP...", N8N_MCP_URL);
 
     // 1. Search for Workflows to find the correct ID
     // We use the proxy path to avoid CORS
-    const searchResponse = await fetch('/mcp-server/http', {
+    const searchResponse = await fetch(`${N8N_MCP_URL}/http`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ export const scrapeContent = async (): Promise<ContentItem[]> => {
     });
 
     if (!searchResponse.ok) {
-      throw new Error(`n8n connection failed: ${searchResponse.status}`);
+      throw new Error(`n8n connection failed: ${searchResponse.status} ${searchResponse.statusText}`);
     }
 
     // Parse SSE response for Search
@@ -147,7 +147,7 @@ export const scrapeContent = async (): Promise<ContentItem[]> => {
     console.log("Found Workflow ID:", workflowId);
 
     // 2. Execute the found workflow
-    const runResponse = await fetch('/mcp-server/http', {
+    const runResponse = await fetch(`${N8N_MCP_URL}/http`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
