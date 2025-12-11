@@ -311,11 +311,17 @@ import { supabase } from './supabaseClient';
 
 // ... (previous imports and constants)
 
-// Fetch saved items from Supabase
-export const getSavedItems = async (): Promise<ContentItem[]> => {
+// Fetch saved items from Supabase (Filtered by User)
+export const getSavedItems = async (userId: string): Promise<ContentItem[]> => {
+  if (!userId) {
+    console.warn("getSavedItems called without userId");
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('saved_content')
     .select('*')
+    .eq('user_id', userId) // Filter by user
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -336,15 +342,17 @@ export const getSavedItems = async (): Promise<ContentItem[]> => {
   }));
 };
 
-// ... (scrapeContent remain largely similar but maybe we can optimize the check later, 
-// for now let's keep scrapeContent returning isSaved: false and let App handle the merge as it does)
+// ... (scrapeContent remain largely similar)
 
-// Save to Supabase
-export const saveItemToDb = async (item: ContentItem): Promise<boolean> => {
+// Save to Supabase (With User ID)
+export const saveItemToDb = async (item: ContentItem, userId: string): Promise<boolean> => {
+  if (!userId) throw new Error("userId required to save");
+
   const { error } = await supabase
     .from('saved_content')
     .insert([{
       id: item.id,
+      user_id: userId,
       title: item.title,
       content: item.content,
       source: item.source,
@@ -363,11 +371,13 @@ export const saveItemToDb = async (item: ContentItem): Promise<boolean> => {
 };
 
 // Delete from Supabase
-export const deleteItemFromDb = async (id: string): Promise<boolean> => {
+export const deleteItemFromDb = async (id: string, userId: string): Promise<boolean> => {
+  // We should conceptually also check userId match for security, assuming RLS isn't strict yet
   const { error } = await supabase
     .from('saved_content')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', userId); // Ensure we only delete our own
 
   if (error) {
     console.error('Error deleting item:', error);

@@ -1,6 +1,7 @@
 -- Create a table for saved content
 create table saved_content (
   id text primary key,
+  user_id text not null, -- Added for isolation
   title text not null,
   content text not null,
   source text not null check (source in ('reddit', 'newsletter')),

@@ -34,11 +34,25 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Load saved items on mount
+  // User ID for device-based isolation
+  const [userId, setUserId] = useState<string>('');
+
   useEffect(() => {
+    let storedId = localStorage.getItem('device_user_id');
+    if (!storedId) {
+      storedId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem('device_user_id', storedId);
+    }
+    setUserId(storedId);
+  }, []);
+
+  // Load saved items on mount (depend on userId)
+  useEffect(() => {
+    if (!userId) return; // Wait for ID
+
     const loadSaved = async () => {
       try {
-        const items = await getSavedItems();
+        const items = await getSavedItems(userId);
         setSavedItems(items);
       } catch (e) {
         showToast('error', 'Failed to load saved items');
@@ -47,7 +61,7 @@ const App: React.FC = () => {
       }
     };
     loadSaved();
-  }, []);
+  }, [userId]);
 
   // Handler: Scrape Data
   const handleScrape = async () => {
@@ -79,6 +93,8 @@ const App: React.FC = () => {
 
   // Handler: Save Item
   const handleSaveItem = async (item: ContentItem) => {
+    if (!userId) return;
+
     // Optimistic UI update
     const updatedItem = { ...item, isSaved: true, savedAt: new Date().toISOString() };
 
@@ -92,7 +108,7 @@ const App: React.FC = () => {
     setDiscoverItems(prev => prev.map(i => i.id === item.id ? { ...i, isSaved: true } : i));
 
     try {
-      await saveItemToDb(updatedItem);
+      await saveItemToDb(updatedItem, userId);
       showToast('success', 'Saved to library');
     } catch (e) {
       // Revert if failed (simplified)
@@ -102,6 +118,8 @@ const App: React.FC = () => {
 
   // Handler: Remove/Delete Item
   const handleRemoveItem = async (id: string) => {
+    if (!userId) return;
+
     // If we are in saved tab, remove from saved list
     if (activeTab === 'saved') {
       setSavedItems(prev => prev.filter(i => i.id !== id));
@@ -109,7 +127,7 @@ const App: React.FC = () => {
       setDiscoverItems(prev => prev.map(i => i.id === id ? { ...i, isSaved: false } : i));
 
       try {
-        await deleteItemFromDb(id);
+        await deleteItemFromDb(id, userId);
         showToast('info', 'Item removed');
       } catch (e) {
         showToast('error', 'Failed to delete');
@@ -121,7 +139,12 @@ const App: React.FC = () => {
       if (item?.isSaved) {
         setSavedItems(prev => prev.filter(i => i.id !== id));
         setDiscoverItems(prev => prev.map(i => i.id === id ? { ...i, isSaved: false } : i));
-        showToast('info', 'Unsaved');
+
+        try {
+          await deleteItemFromDb(id, userId);
+          showToast('info', 'Unsaved');
+        } catch (e) { showToast('error', 'Failed to unsave'); }
+
       } else {
         // Hide from feed
         setDiscoverItems(prev => prev.filter(i => i.id !== id));
