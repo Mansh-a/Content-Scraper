@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/mcp-server/:match*",
-            "destination": "https://cvc.app.n8n.cloud/webhook/:match*"
+            "destination": "https://cvc.app.n8n.cloud/mcp-server/:match*"
         }
     ]
 }
