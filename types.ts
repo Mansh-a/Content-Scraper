@@ -13,7 +13,7 @@ export interface ContentItem {
   imageUrl?: string;
 }
 
-export type TabType = 'discover' | 'saved';
+export type TabType = 'discover' | 'saved' | 'settings' | 'help';
 
 export interface Toast {
   id: string;

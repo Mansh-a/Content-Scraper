@@ -4,8 +4,14 @@ import Sidebar from './components/Sidebar';
 import ContentCard from './components/ContentCard';
 import ContentModal from './components/ContentModal';
 import HookModal from './components/HookModal';
+import Settings from './components/Settings';
+import Help from './components/Help';
 import { ContentItem, TabType, Toast } from './types';
 import { scrapeContent, saveItemToDb, deleteItemFromDb, getSavedItems } from './services/dataService';
+import Login from './components/Login';
+import { supabase } from './services/supabaseClient';
+import { Session } from '@supabase/supabase-js';
+
 import { generateHooks } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -34,25 +40,37 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // User ID for device-based isolation
-  const [userId, setUserId] = useState<string>('');
+  // User Session State
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
+  // Initialize Auth
   useEffect(() => {
-    let storedId = localStorage.getItem('device_user_id');
-    if (!storedId) {
-      storedId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      localStorage.setItem('device_user_id', storedId);
-    }
-    setUserId(storedId);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // If signed out, clear data
+      if (!session) {
+        setSavedItems([]);
+        setDiscoverItems([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Load saved items on mount (depend on userId)
   useEffect(() => {
-    if (!userId) return; // Wait for ID
+    if (!session?.user) return;
 
     const loadSaved = async () => {
       try {
-        const items = await getSavedItems(userId);
+        const items = await getSavedItems(session.user.id);
         setSavedItems(items);
       } catch (e) {
         showToast('error', 'Failed to load saved items');
@@ -61,7 +79,12 @@ const App: React.FC = () => {
       }
     };
     loadSaved();
-  }, [userId]);
+  }, [session]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    showToast('info', 'Logged out successfully');
+  };
 
   // Handler: Scrape Data
   const handleScrape = async () => {
@@ -93,7 +116,7 @@ const App: React.FC = () => {
 
   // Handler: Save Item
   const handleSaveItem = async (item: ContentItem) => {
-    if (!userId) return;
+    if (!session?.user?.id) return;
 
     // Optimistic UI update
     const updatedItem = { ...item, isSaved: true, savedAt: new Date().toISOString() };
@@ -108,7 +131,7 @@ const App: React.FC = () => {
     setDiscoverItems(prev => prev.map(i => i.id === item.id ? { ...i, isSaved: true } : i));
 
     try {
-      await saveItemToDb(updatedItem, userId);
+      await saveItemToDb(updatedItem, session.user.id);
       showToast('success', 'Saved to library');
     } catch (e) {
       // Revert if failed (simplified)
@@ -118,7 +141,7 @@ const App: React.FC = () => {
 
   // Handler: Remove/Delete Item
   const handleRemoveItem = async (id: string) => {
-    if (!userId) return;
+    if (!session?.user?.id) return;
 
     // If we are in saved tab, remove from saved list
     if (activeTab === 'saved') {
@@ -127,7 +150,7 @@ const App: React.FC = () => {
       setDiscoverItems(prev => prev.map(i => i.id === id ? { ...i, isSaved: false } : i));
 
       try {
-        await deleteItemFromDb(id, userId);
+        await deleteItemFromDb(id, session.user.id);
         showToast('info', 'Item removed');
       } catch (e) {
         showToast('error', 'Failed to delete');
@@ -141,7 +164,7 @@ const App: React.FC = () => {
         setDiscoverItems(prev => prev.map(i => i.id === id ? { ...i, isSaved: false } : i));
 
         try {
-          await deleteItemFromDb(id, userId);
+          await deleteItemFromDb(id, session.user.id);
           showToast('info', 'Unsaved');
         } catch (e) { showToast('error', 'Failed to unsave'); }
 
@@ -174,12 +197,30 @@ const App: React.FC = () => {
     setViewingItem(item);
   };
 
+  const handleNotificationClick = () => {
+    showToast('info', "You're all caught up! No new notifications.");
+  };
+
   // Filtering
-  const displayedItems = (activeTab === 'discover' ? discoverItems : savedItems).filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.sourceName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const displayedItems = (activeTab === 'discover' || activeTab === 'saved')
+    ? (activeTab === 'discover' ? discoverItems : savedItems).filter(item =>
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.sourceName.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : [];
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-emerald-600" size={32} />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
@@ -189,6 +230,7 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         savedCount={savedItems.length}
+        onLogout={handleLogout}
       />
 
       {/* Main Content */}
@@ -196,92 +238,123 @@ const App: React.FC = () => {
 
         {/* Header */}
         <header className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-md border-b border-slate-200 px-8 py-5 flex items-center justify-between">
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search content..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 ml-6">
-            <button
-              onClick={handleScrape}
-              disabled={isScraping}
-              className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-all shadow-lg shadow-emerald-700/20 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isScraping ? <Loader2 size={16} className="animate-spin" /> : <DownloadCloud size={16} />}
-              {isScraping ? 'Scraping...' : 'Scrape Now'}
-            </button>
-
-            <button className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-200">
-              <Bell size={20} />
-            </button>
-
-            <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-slate-800">Alex Creator</p>
-                <p className="text-xs text-slate-400">Pro Plan</p>
+          {(activeTab === 'discover' || activeTab === 'saved') ? (
+            <>
+              <div className="flex-1 max-w-xl">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search content..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  />
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-white shadow-sm overflow-hidden">
-                <img src="https://picsum.photos/100/100" alt="Profile" className="w-full h-full object-cover" />
+
+              <div className="flex items-center gap-4 ml-6">
+                <button
+                  onClick={handleScrape}
+                  disabled={isScraping}
+                  className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-all shadow-lg shadow-emerald-700/20 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isScraping ? <Loader2 size={16} className="animate-spin" /> : <DownloadCloud size={16} />}
+                  {isScraping ? 'Scraping...' : 'Scrape Now'}
+                </button>
+
+                <button
+                  onClick={handleNotificationClick}
+                  className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-200"
+                >
+                  <Bell size={20} />
+                </button>
+
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {session.user.email?.split('@')[0] || 'User'}
+                    </p>
+                    <p className="text-xs text-slate-400">Standard Plan</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center text-emerald-700 font-bold">
+                    {session.user.email?.substring(0, 2).toUpperCase() || 'US'}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex w-full justify-end">
+              <div className="flex items-center gap-3 pl-4">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {session.user.email?.split('@')[0] || 'User'}
+                  </p>
+                  <p className="text-xs text-slate-400">Standard Plan</p>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center text-emerald-700 font-bold">
+                  {session.user.email?.substring(0, 2).toUpperCase() || 'US'}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </header>
 
         {/* Dashboard Content */}
         <div className="p-8 flex-1 overflow-y-auto">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-800 mb-2 capitalize">
-              {activeTab === 'discover' ? 'Explore Content' : 'Saved Collection'}
-            </h1>
-            <p className="text-slate-500">
-              {activeTab === 'discover'
-                ? 'Latest updates from your configured sources.'
-                : 'Your curated list of content ideas.'}
-            </p>
-          </div>
+          {(activeTab === 'discover' || activeTab === 'saved') ? (
+            <>
+              <div className="mb-8">
+                <h1 className="text-2xl font-bold text-slate-800 mb-2 capitalize">
+                  {activeTab === 'discover' ? 'Explore Content' : 'Saved Collection'}
+                </h1>
+                <p className="text-slate-500">
+                  {activeTab === 'discover'
+                    ? 'Latest updates from your configured sources.'
+                    : 'Your curated list of content ideas.'}
+                </p>
+              </div>
 
-          {displayedItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
-              {activeTab === 'discover' ? (
-                <>
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
-                    <DownloadCloud size={32} />
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-700">No content found</h3>
-                  <p className="text-slate-500 mt-2 max-w-sm">Hit the "Scrape Now" button to fetch the latest posts from Reddit and your newsletters.</p>
-                </>
+              {displayedItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
+                  {activeTab === 'discover' ? (
+                    <>
+                      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
+                        <DownloadCloud size={32} />
+                      </div>
+                      <h3 className="text-lg font-medium text-slate-700">No content found</h3>
+                      <p className="text-slate-500 mt-2 max-w-sm">Hit the "Scrape Now" button to fetch the latest posts from Reddit and your newsletters.</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
+                        <DownloadCloud size={32} />
+                      </div>
+                      <h3 className="text-lg font-medium text-slate-700">No saved items</h3>
+                      <p className="text-slate-500 mt-2">Items you save from the Discover tab will appear here.</p>
+                    </>
+                  )}
+                </div>
               ) : (
-                <>
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
-                    <DownloadCloud size={32} />
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-700">No saved items</h3>
-                  <p className="text-slate-500 mt-2">Items you save from the Discover tab will appear here.</p>
-                </>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {displayedItems.map(item => (
+                    <ContentCard
+                      key={item.id}
+                      item={item}
+                      onSave={handleSaveItem}
+                      onRemove={handleRemoveItem}
+                      onGenerateHook={handleGenerateHook}
+                      onView={handleViewItem}
+                      view={activeTab as 'discover' | 'saved'}
+                    />
+                  ))}
+                </div>
               )}
-            </div>
+            </>
+          ) : activeTab === 'settings' ? (
+            <Settings session={session} />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayedItems.map(item => (
-                <ContentCard
-                  key={item.id}
-                  item={item}
-                  onSave={handleSaveItem}
-                  onRemove={handleRemoveItem}
-                  onGenerateHook={handleGenerateHook}
-                  onView={handleViewItem}
-                  view={activeTab}
-                />
-              ))}
-            </div>
+            <Help />
           )}
         </div>
       </main>

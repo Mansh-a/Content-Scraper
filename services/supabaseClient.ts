@@ -16,7 +16,14 @@ const createSupabaseClient = () => {
                 select: () => ({ order: () => Promise.resolve({ data: [], error: null }) }),
                 insert: () => Promise.resolve({ error: { message: 'Supabase not configured' } }),
                 delete: () => Promise.resolve({ error: { message: 'Supabase not configured' } }),
-            })
+            }),
+            auth: {
+                getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+                onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => { } } } }),
+                signInWithPassword: () => Promise.resolve({ error: { message: 'Supabase not configured (Mock Mode)' } }),
+                signUp: () => Promise.resolve({ error: { message: 'Supabase not configured (Mock Mode)' } }),
+                signOut: () => Promise.resolve({ error: null }),
+            }
         } as any;
     }
 };

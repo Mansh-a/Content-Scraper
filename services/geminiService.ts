@@ -2,26 +2,30 @@ import { GoogleGenAI } from "@google/genai";
 
 // Ideally, this is injected via process.env.API_KEY.
 // For this demo artifact, if no key is present, we will simulate a response.
-const apiKey = process.env.API_KEY || ''; 
+const apiKey = process.env.API_KEY || '';
 
 export const generateHooks = async (content: string): Promise<string[]> => {
-  if (!apiKey) {
-    console.warn("No API Key found. Returning mock hooks.");
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve([
-          "🚀 This insight completely changed how I think about the topic. Here is why...",
-          "You're doing it wrong. Here is the better way to handle this situation. 🧵",
-          "🔥 I saved this for later, but I can't stop thinking about it. A breakdown:"
-        ]);
-      }, 1500);
-    });
-  }
+  // Simulate analysis if no API key
+  console.warn("No API Key found. Returning simulated hooks.");
+  return new Promise((resolve) => {
+    // Simple keyword extraction for better simulation
+    const keywords = content.split(' ').filter(w => w.length > 5).slice(0, 2);
+    const topic = keywords.length > 0 ? keywords.join(' ') : 'this topic';
+
+    setTimeout(() => {
+      resolve([
+        `🚀 Everyone is talking about ${topic}, but they are missing the point. Here is what matters...`,
+        `Stop doing ${topic} the old way. 🛑 I found a better approach that changes everything.`,
+        `🔥 My biggest takeaway from analyzing ${topic}: It's not what you think. A breakdown:`,
+        `If you care about ${topic}, you need to read this immediately. 👇`
+      ]);
+    }, 1000);
+  });
 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const model = 'gemini-2.5-flash';
-    
+
     const prompt = `
       Analyze the following content and generate 3 distinct, engaging social media hooks (Twitter/LinkedIn style).
       

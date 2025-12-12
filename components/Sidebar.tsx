@@ -6,9 +6,10 @@ interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   savedCount: number;
+  onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, savedCount }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, savedCount, onLogout }) => {
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 flex flex-col z-20">
       <div className="p-8 pb-4">
@@ -22,23 +23,21 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, savedCount }
         <nav className="space-y-1">
           <button
             onClick={() => setActiveTab('discover')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
-              activeTab === 'discover'
-                ? 'bg-emerald-50 text-emerald-700 shadow-sm'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-            }`}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${activeTab === 'discover'
+              ? 'bg-emerald-50 text-emerald-700 shadow-sm'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
           >
             <LayoutGrid size={18} />
             Discover
           </button>
-          
+
           <button
             onClick={() => setActiveTab('saved')}
-            className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
-              activeTab === 'saved'
-                ? 'bg-emerald-50 text-emerald-700 shadow-sm'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-            }`}
+            className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${activeTab === 'saved'
+              ? 'bg-emerald-50 text-emerald-700 shadow-sm'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
           >
             <div className="flex items-center gap-3">
               <Bookmark size={18} />
@@ -54,15 +53,30 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, savedCount }
       </div>
 
       <div className="mt-auto p-6 space-y-1 border-t border-slate-100">
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors">
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors ${activeTab === 'settings'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+        >
           <Settings size={18} />
           Settings
         </button>
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors">
+        <button
+          onClick={() => setActiveTab('help')}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors ${activeTab === 'help'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+        >
           <HelpCircle size={18} />
           Help
         </button>
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 rounded-xl hover:bg-red-50 transition-colors">
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 rounded-xl hover:bg-red-50 transition-colors"
+        >
           <LogOut size={18} />
           Logout
         </button>
