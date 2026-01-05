@@ -7,7 +7,7 @@ import HookModal from './components/HookModal';
 import Settings from './components/Settings';
 import Help from './components/Help';
 import { ContentItem, TabType, Toast } from './types';
-import { scrapeContent, saveItemToDb, deleteItemFromDb, getSavedItems } from './services/dataService';
+import { scrapeContent, scrapeContentStreaming, saveItemToDb, deleteItemFromDb, getSavedItems, getDiscoveredItems } from './services/dataService';
 import Login from './components/Login';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
@@ -68,17 +68,21 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!session?.user) return;
 
-    const loadSaved = async () => {
+    const loadData = async () => {
       try {
-        const items = await getSavedItems(session.user.id);
-        setSavedItems(items);
+        const [saved, discovered] = await Promise.all([
+          getSavedItems(session.user.id),
+          getDiscoveredItems(session.user.id)
+        ]);
+        setSavedItems(saved);
+        setDiscoverItems(discovered);
       } catch (e) {
-        showToast('error', 'Failed to load saved items');
+        showToast('error', 'Failed to load library data');
       } finally {
         setIsLoadingSaved(false);
       }
     };
-    loadSaved();
+    loadData();
   }, [session]);
 
   const handleLogout = async () => {
@@ -89,24 +93,33 @@ const App: React.FC = () => {
   // Handler: Scrape Data
   const handleScrape = async () => {
     setIsScraping(true);
+    let newCount = 0;
     try {
-      const scrapedItems = await scrapeContent();
+      // Use streaming scrape to handle items one by one
+      await scrapeContentStreaming(async (item) => {
+        newCount++;
 
-      // Mark as saved if they exist in savedItems
-      const savedIds = new Set(savedItems.map(i => i.id));
-      const newItems = scrapedItems.map(item => ({
-        ...item,
-        isSaved: savedIds.has(item.id)
-      }));
+        // Check if already in saved items
+        const isSaved = savedItems.some(si => si.id === item.id);
+        const newItem = { ...item, isSaved };
 
-      // Merge with existing but avoid duplicates based on ID (simple check)
-      setDiscoverItems(prev => {
-        const existingIds = new Set(prev.map(i => i.id));
-        const uniqueNew = newItems.filter(i => !existingIds.has(i.id));
-        return [...uniqueNew, ...prev];
+        // PERSIST DISCOVERED ITEM
+        if (session?.user?.id) {
+          saveItemToDb(newItem, session.user.id).catch(console.error);
+        }
+
+        setDiscoverItems(prev => {
+          // Prevent UI duplicates
+          if (prev.some(i => i.id === item.id)) return prev;
+          return [newItem, ...prev];
+        });
       });
 
-      showToast('success', `Found ${newItems.length} new items`);
+      if (newCount > 0) {
+        showToast('success', `Added ${newCount} new items`);
+      } else {
+        showToast('info', 'No new items found');
+      }
     } catch (error) {
       showToast('error', 'Failed to fetch content');
     } finally {
@@ -210,6 +223,9 @@ const App: React.FC = () => {
     )
     : [];
 
+  // Password Reset Flow State
+  const [isPasswordResetFlow, setIsPasswordResetFlow] = useState(false);
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -218,8 +234,14 @@ const App: React.FC = () => {
     );
   }
 
-  if (!session) {
-    return <Login />;
+  // Show Login if not logged in OR if we are in the middle of a password reset flow (authenticated but setting password)
+  if (!session || isPasswordResetFlow) {
+    return (
+      <Login
+        session={session}
+        onPasswordResetMode={setIsPasswordResetFlow}
+      />
+    );
   }
 
   return (

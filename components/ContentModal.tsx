@@ -40,16 +40,22 @@ const ContentModal: React.FC<ContentModalProps> = ({ isOpen, onClose, item }) =>
 
                 {/* Scrollable Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    {item.imageUrl && (
+                    {item.imageUrl && item.imageUrl !== "" && (
                         <div className="mb-6 rounded-xl overflow-hidden w-full">
-                            <img src={item.imageUrl} alt="Article header" className="w-full h-auto object-cover" />
+                            <img
+                                src={item.imageUrl}
+                                alt="Article header"
+                                className="w-full h-auto object-cover max-h-96"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
                         </div>
                     )}
 
                     <div className="prose prose-slate max-w-none">
-                        <p className="text-slate-600 leading-relaxed whitespace-pre-wrap text-base">
-                            {item.content}
-                        </p>
+                        <div
+                            className="text-slate-600 leading-relaxed text-base"
+                            dangerouslySetInnerHTML={{ __html: item.content }}
+                        />
                     </div>
                 </div>
 

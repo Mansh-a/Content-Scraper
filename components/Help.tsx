@@ -7,7 +7,7 @@ const Help: React.FC = () => {
     const faqs = [
         {
             question: "How does the scraping work?",
-            answer: "We use a combination of direct API integrations (like Reddit) and our custom n8n workflow to fetch the latest content. The system runs periodically or when you manually trigger a scrape."
+            answer: "We use a combination of direct API integrations (like Reddit) and our custom Make.com workflow to fetch the latest content. The system runs periodically or when you manually trigger a scrape."
         },
         {
             question: "Is my data private?",
